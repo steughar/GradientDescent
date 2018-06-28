@@ -1,4 +1,5 @@
 #include "eval_circle.h"
+#include <stdlib.h>
 
 double gradA(double a, double b, double R, ExperimentalDots *Dots)
 {
@@ -45,21 +46,67 @@ double gradR(double a, double b, double R, ExperimentalDots *Dots)
   return(Result);
 }
 
+double gradF(double Q, double f, ExperimentalDots *Dots, Circle *crcl)
+{
+  double delta = 0.00001;
+  double Result = (WeightingFunction(Q, f + delta, Dots, crcl) -
+                   WeightingFunction(Q, f, Dots, crcl)) / delta;
+  return(Result);
+  
+}
+
+double gradQ(double Q, double f, ExperimentalDots *Dots, Circle *crcl)
+{
+  
+  double delta = 0.00001;
+  double Result = (WeightingFunction(Q + delta, f, Dots, crcl) -
+                   WeightingFunction(Q, f, Dots, crcl)) / delta;
+  return(Result);
+}
+
+double GetAlpha(double Q, double f, double f0)
+{
+  double Result = 2*atan(Q*(f / f0 - f0 / f));
+  return(Result);
+}
+
+double WeightingFunction(double Q, double f, ExperimentalDots *Dots, Circle *crcl)
+{
+  
+  double Result = 0;
+  double alpha = 0;
+  // dynamically declare an arrays size of n
+  double *new_x = (double *)malloc(sizeof(double)*Dots->n);
+  double *new_y = (double *)malloc(sizeof(double)*Dots->n);
+
+  // generate new dots 
+  for(int i = 0; i < Dots->n; i++) {
+    
+    alpha = GetAlpha(Q, f, Dots->f0[i]);
+    new_x[i] = cos(alpha)*crcl->Radius;
+    new_y[i] = sin(alpha)*crcl->Radius;
+  }
+
+  // compute error 
+  for(int i = 0; i < Dots->n; i++) {
+    
+    Result += sqrt((Dots->x[i] - new_x[i])*(Dots->x[i] - new_x[i])
+                   + (Dots->y[i] - new_y[i])*(Dots->y[i] - new_y[i]));
+  }
+
+  return(Result);
+}
+
 
 void estimate_center_of_circle
 (
- const double x[],   //--> Array contains X coordinates of experimenal dots
- const double y[],   //--> Array contains Y coordinates of experimenal dots
- size_t n,           //--> Number of experimental dots
- double *lse,        //--> Least Squares Error estimation after approximation
- int *niter,         //--> Number of iterations          
- Circle *crcl        //--> In this structure result will be written
+ ExperimentalDots *Dots,
+ size_t n,             
+ double *lse,          
+ int *niter,         
+ Circle *crcl        
  )
 {
-  ExperimentalDots Dots;
-  Dots.x = x;
-  Dots.y = y;
-  Dots.n = n;
 
   double error = 0;
   double sigma = 0.02;
@@ -72,8 +119,8 @@ void estimate_center_of_circle
 
   for (int i = 0; i < n; i++)
     {
-      AverageA += x[i];
-      AverageB += y[i];
+      AverageA += Dots->x[i];
+      AverageB += Dots->y[i];
 
     }
   AverageA /= n;
@@ -81,8 +128,8 @@ void estimate_center_of_circle
 
   for (int i = 0; i < n; i++)
     {
-      AverageR += sqrt((AverageA - Dots.x[i])*(AverageA - Dots.x[i]) +
-                       (AverageB - Dots.y[i])*(AverageB - Dots.y[i]));
+      AverageR += sqrt((AverageA - Dots->x[i])*(AverageA - Dots->x[i]) +
+                       (AverageB - Dots->y[i])*(AverageB - Dots->y[i]));
     }
   AverageR /= n;
   //------------------------------------------------------------------------------
@@ -103,8 +150,8 @@ void estimate_center_of_circle
       error = 0;
       for (int i = 0; i < n; i++)
         {
-          double x_i = Dots.x[i];
-          double y_i = Dots.y[i];
+          double x_i = Dots->x[i];
+          double y_i = Dots->y[i];
 
           //weighting function
           error += (sqrt((x_i - a)*(x_i - a) + (y_i - b)*(y_i - b)) - R) *
@@ -120,9 +167,9 @@ void estimate_center_of_circle
           R_bestFit = R;
         }
       //updates weights a,b,R
-      a = a - sigma * (gradA(a, b, R, &Dots) / n);
-      b = b - sigma * (gradB(a, b, R, &Dots) / n);
-      R = R - sigma * (gradR(a, b, R, &Dots) / n);
+      a = a - sigma * (gradA(a, b, R, Dots) / n);
+      b = b - sigma * (gradB(a, b, R, Dots) / n);
+      R = R - sigma * (gradR(a, b, R, Dots) / n);
     }
   //--------------------------------------------------------------------------------
 
@@ -130,7 +177,70 @@ void estimate_center_of_circle
   crcl->CenterX = a_bestFit;
   crcl->CenterY = b_bestFit;
   crcl->Radius  = R_bestFit;
+  crcl->phi     = (AverageB - b_bestFit)/R_bestFit;
 
   *lse = minimal_error / n;
   *niter = 1000;
 }
+
+
+void
+adjust_experimental_data (
+    ExperimentalDots *Dots,
+    Circle *crcl
+)
+{
+
+  // take down experimental data to the origin
+  for (int i = 0; i < Dots->n; i++) {
+    Dots->x[i] -= crcl->CenterX;
+    Dots->y[i] -= crcl->CenterY;
+  }
+
+  double cosPhi = cos(crcl->phi);
+  double sinPhi = sin(crcl->phi);
+
+  // rotate experimental data
+  for (int i = 0; i < Dots->n; i++) {
+    Dots->y[i] = Dots->y[i]*cosPhi + Dots->x[i]*sinPhi;
+    Dots->x[i] = Dots->x[i]*cosPhi - Dots->y[i]*sinPhi;
+  }
+
+}
+
+void find_Q_factor
+(
+    ExperimentalDots *Dots,
+    Weights *weights,
+    Circle *crcl,
+    double *lse
+)
+{
+  double sigma = 0.02;
+  double error = 0;
+  double minimal_error = 99999999;
+  double Q_bestFit = 0;
+  double f_bestFit = 0;
+  double Q = weights->Q;
+  double f = weights->f;
+                 
+  for(int count = 0; count < 1000; count++) {
+
+    error = WeightingFunction(Q, f, Dots, crcl);
+    
+    if(error < minimal_error) {
+      minimal_error = error;
+      Q_bestFit = Q;
+      f_bestFit = f;
+    }
+    
+    Q -= sigma*gradQ(Q, f, Dots, crcl);
+    f -= sigma*gradF(Q, f, Dots, crcl);
+  }
+  
+  weights->Q = Q_bestFit;
+  weights->f = f_bestFit;
+  *lse = minimal_error;
+}
+
+    

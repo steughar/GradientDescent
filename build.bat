@@ -7,5 +7,4 @@ del *.pdb > NUL 2> NUL
 
 cl -Z7 -nologo -Fmeval_circle.map ..\eval_circle\source.c ..\eval_circle\eval_circle.c
 
-
 popd
