@@ -10,7 +10,7 @@ int main(void)
   ExperimentalDots Dots;
   FILE* stream;
         
-  stream = fopen("W:\\work\\LKARD\\CEX\\CEX\\40_dots.txt", "r");
+  stream = fopen("W:\\work\\LKARD\\GradientDescend\\code\\txt\\Q150F28000.txt", "r");
   int fileCarret = fscanf(stream, "%lf", &ArrayOfXY[0]);
   int j = 1;
   
@@ -26,9 +26,10 @@ int main(void)
   double f0[size / 3];
   int counter = 0;
   for (int i = 0; i < size; i += 3) {
-    f0[counter] = ArrayOfXY[i];
-    x[counter] = ArrayOfXY[i + 1];
-    y[counter] = ArrayOfXY[i + 2];
+    
+    x[counter] = ArrayOfXY[i];
+    y[counter] = ArrayOfXY[i + 1];
+    f0[counter] = ArrayOfXY[i + 2];
     counter++;
   }
   
@@ -58,8 +59,8 @@ int main(void)
   */
   Weights weights;
   // seed values for optimization
-  weights.Q = 6;
-  weights.f = 29000;
+  weights.Q = 150;
+  weights.f = 28000;
 
   
   find_Q_factor(&Dots, &weights, &crcl, &lse);

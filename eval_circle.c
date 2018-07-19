@@ -196,15 +196,17 @@ adjust_experimental_data (
     Dots->x[i] -= crcl->CenterX;
     Dots->y[i] -= crcl->CenterY;
   }
-
-  double cosPhi = cos(crcl->phi);
-  double sinPhi = sin(crcl->phi);
+  /* Putative mistake here, better convergence without rotate
+  // TODO: Bulletproof angle calculation 
+  double cosPhi = cos(0);
+  double sinPhi = sin(0);
 
   // rotate experimental data
   for (int i = 0; i < Dots->n; i++) {
     Dots->y[i] = Dots->y[i]*cosPhi + Dots->x[i]*sinPhi;
     Dots->x[i] = Dots->x[i]*cosPhi - Dots->y[i]*sinPhi;
   }
+  */
 
 }
 
